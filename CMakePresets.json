@@ -52,7 +52,6 @@
       "binaryDir": "${sourceDir}/build-test",
       "cacheVariables": {
         "COPY_PEX": true,
-        "COPY_BSA": true,
         "COPY_PSC": true
       }
     },

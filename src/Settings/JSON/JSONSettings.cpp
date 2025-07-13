@@ -4,7 +4,7 @@ namespace Settings::JSON
 {
 	bool Read() {
 		logger::info("Reading JSON settings..."sv);
-		auto* reader = Reader::GetSingleton();
+		auto* reader = Holder::GetSingleton();
 		if (!reader) {
 			logger::critical("  >Failed to fetch the reader singleton."sv);
 			return false;
@@ -12,7 +12,7 @@ namespace Settings::JSON
 		return reader->Read();
 	}
 
-	bool Reader::Read()
+	bool Holder::Read()
 	{
 		std::string jsonFolder = fmt::format(R"(.\Data\SKSE\Plugins\{})"sv, Plugin::NAME);
 		logger::info("  >Settings folder: {}."sv, jsonFolder);
@@ -69,7 +69,7 @@ namespace Settings::JSON
 		return true;
 	}
 
-	bool Reader::ReadConfig(const Json::Value& a_json) {
+	bool Holder::ReadConfig(const Json::Value& a_json) {
 		const auto& minVersionField = a_json[MINIMUM_VERSION_FIELD];
 		if (minVersionField) {
 			if (!minVersionField.isInt()) {
@@ -88,13 +88,29 @@ namespace Settings::JSON
 				return false;
 			}
 		}
+
+		for (const auto* fieldName : EXPECTED_FIELDS) {
+			if (!a_json.isMember(fieldName)) {
+				continue;
+			}
+
+			const auto& field = a_json[fieldName];
+			if (field.isObject()) {
+				m_storedSettings[fieldName].push_back(field);
+			}
+			else if (field.isArray()) {
+				for (const auto& subField : field) {
+					if (!subField.isObject()) {
+						logger::warn("      >Array {} contains non-object member."sv, fieldName);
+					}
+					m_storedSettings[fieldName].push_back(subField);
+				}
+			}
+		}
 		return true;
 	}
-}
 
-namespace Settings::JSON
-{
-	std::string Reader::GetEditorID(const RE::TESForm* a_form)
+	std::string StoredValue::GetEditorID(const RE::TESForm* a_form)
 	{
 		switch (a_form->GetFormType()) {
 		case RE::FormType::Keyword:
@@ -137,7 +153,7 @@ namespace Settings::JSON
 		}
 	}
 
-	inline std::vector<std::string> Reader::split(const std::string& a_str, const std::string& a_delimiter)
+	inline std::vector<std::string> StoredValue::Split(const std::string& a_str, const std::string& a_delimiter)
 	{
 		std::vector<std::string> result;
 		size_t start = 0;
@@ -153,7 +169,7 @@ namespace Settings::JSON
 		return result;
 	}
 
-	inline bool Reader::is_only_hex(std::string_view a_str, bool a_requirePrefix)
+	inline bool StoredValue::IsOnlyHex(std::string_view a_str, bool a_requirePrefix)
 	{
 		if (!a_requirePrefix) {
 			return std::ranges::all_of(a_str, [](unsigned char ch) {
@@ -168,7 +184,7 @@ namespace Settings::JSON
 		return false;
 	}
 
-	inline std::string Reader::tolower(std::string_view a_str)
+	inline std::string StoredValue::ToLower(std::string_view a_str)
 	{
 		std::string result(a_str);
 		std::ranges::transform(result, result.begin(), [](unsigned char ch) { return static_cast<unsigned char>(std::tolower(ch)); });

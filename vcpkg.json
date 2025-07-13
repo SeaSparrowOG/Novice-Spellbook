@@ -1,8 +1,8 @@
 {
-  "name": "template-plugin",
+  "name": "novice-spellbook",
   "version-string": "1.0.0",
-  "description": "Template for SKSE plugin built using commonlib. MIT License by default.",
-  "homepage": "https://github.com/SeaSparrowOG/SKSE-Plugin-Template",
+  "description": "SKSE Plugin companion for my Novice's Spellbook mod.",
+  "homepage": "https://github.com/SeaSparrowOG/Novice-Spellbook",
   "license": "MIT",
   "dependencies": [
     "boost-stl-interfaces",

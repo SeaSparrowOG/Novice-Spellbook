@@ -6,24 +6,22 @@ namespace Settings
 {
 	namespace JSON
 	{
+		inline static constexpr const char* PROJECTILE_MANAGER_FIELD = "ProjectileManager";
+
 		bool Read();
 
-		class Reader : public REX::Singleton<Reader>
+		class StoredValue
 		{
 		public:
-			bool Read();
+			virtual bool LoadData(const Json::Value& a_field) = 0;
+			virtual ~StoredValue() = default;
 
 		private:
-			bool ReadConfig(const Json::Value& a_entry);
-
-			RE::TESDataHandler* dataHandler{ nullptr };
-			// Helper functions
 			using _GetFormEditorID = const char* (*)(std::uint32_t);
-			std::string GetEditorID(const RE::TESForm* a_form);
-
-			inline std::vector<std::string> split(const std::string& a_str, const std::string& a_delimiter);
-			inline bool is_only_hex(std::string_view a_str, bool a_requirePrefix = true);
-			inline std::string tolower(std::string_view a_str);
+			std::string                     GetEditorID(const RE::TESForm* a_form);
+			inline std::vector<std::string> Split(const std::string& a_str, const std::string& a_delimiter);
+			inline bool                     IsOnlyHex(std::string_view a_str, bool a_requirePrefix = true);
+			inline std::string              ToLower(std::string_view a_str);
 
 			template <class T>
 			T to_num(const std::string& a_str, bool a_hex = false)
@@ -54,12 +52,17 @@ namespace Settings
 			T* GetFormFromString(const std::string& a_str)
 			{
 				T* response = nullptr;
-				if (const auto splitID = split(a_str, "|"); splitID.size() == 2) {
+				auto* dataHandler = RE::TESDataHandler::GetSingleton();
+				if (!dataHandler) {
+					return nullptr;
+				}
+
+				if (const auto splitID = Split(a_str, "|"); splitID.size() == 2) {
 					const auto& modName = splitID[0];
 					if (!dataHandler->LookupModByName(modName)) {
 						return response;
 					}
-					if (!is_only_hex(splitID[1])) {
+					if (!IsOnlyHex(splitID[1])) {
 						return response;
 					}
 
@@ -80,7 +83,49 @@ namespace Settings
 			}
 		};
 
-		inline static constexpr std::uint8_t PARSER_VERSION = 1;
-		inline static constexpr const char* MINIMUM_VERSION_FIELD = "MinimumVersion";
+		class Holder : public REX::Singleton<Holder>
+		{
+		public:
+			bool Read();
+
+			template <typename T>
+			bool RequestSettings(const std::string& a_key,
+				std::function<std::unique_ptr<T>()> a_factory,
+				std::vector<std::unique_ptr<T>>& a_result) 
+			{
+				auto it = m_storedSettings.find(a_key);
+				if (it == m_storedSettings.end()) {
+					return true;
+				}
+
+				for (const auto& jsonBlock : it->second) {
+					auto obj = a_factory();
+					if (!obj->LoadData(jsonBlock)) {
+						return false;
+					}
+					a_result.push_back(std::move(obj));
+				}
+
+				return true;
+			}
+
+		private:
+			bool ReadConfig(const Json::Value& a_entry);
+
+			std::unordered_map<std::string, std::vector<Json::Value>> m_storedSettings{};
+
+			inline static constexpr std::uint8_t PARSER_VERSION = 1;
+			inline static constexpr const char* MINIMUM_VERSION_FIELD = "MinimumVersion";
+
+			inline static constexpr std::uint8_t ALLOWED_FIELDS_COUNT = 1;
+			inline static constexpr std::array<const char*, ALLOWED_FIELDS_COUNT> EXPECTED_FIELDS = {
+				PROJECTILE_MANAGER_FIELD
+			};
+
+			inline static constexpr std::uint8_t TOP_LEVEL_FIELDS_COUNT = 1;
+			inline static constexpr std::array<const char*, TOP_LEVEL_FIELDS_COUNT> TOP_LEVEL_FIELDS = {
+				MINIMUM_VERSION_FIELD
+			};
+		};
 	}
 }

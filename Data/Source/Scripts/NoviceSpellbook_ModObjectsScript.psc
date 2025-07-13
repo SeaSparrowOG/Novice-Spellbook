@@ -1,0 +1,1 @@
+Scriptname NoviceSpellbook_ModObjectsScript Extends Quest
